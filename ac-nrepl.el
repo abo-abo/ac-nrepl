@@ -283,29 +283,30 @@ This affects only the current buffer."
    (nrepl-send-string-sync x)
    :value))
 
-(defun ac-nrepl-symbolp (x)
-  "Return t if X is a symbol."
-  (string= "true" (ac-nrepl-quick-eval (format "(symbol? '%s)" x))))
-
-(defun ac-nrepl-fboundp (x)
-  "Return t if X is resolvable."
-  (and (ac-nrepl-symbolp x)
-       (not (string= "nil" (ac-nrepl-quick-eval (format "(resolve '%s)" x))))))
-
-(defun ac-nrepl-symbol-value (x)
-  "Get value of X if it's a symbol and can be resolved."
-  (if (ac-nrepl-fboundp x)
-      (ac-nrepl-quick-eval x)
-    "not resolved"))
+(defun ac-nrepl-symbol-info (x)
+  "Return a doctring for X."
+  (when (null (get 'ac-nrepl-symbol-info 'sourced))
+    (put 'ac-nrepl-symbol-info 'sourced t)
+    (nrepl-send-string-sync
+     "(defmacro symbol-info [x]
+  (let [symbolp (symbol? x)
+        fboundp (and symbolp (resolve x))
+        docstring (and symbolp
+                       (eval `(with-out-str (doc ~x))))
+        special (and docstring
+                     (re-find #\"\n(Macro|Special Form)\n\"
+                              docstring))]
+    (cond
+     special docstring
+     (not fboundp) \"unbound\"
+     :else `(format \"%s\n%s.\" ~docstring ~x))))"))
+  (read (ac-nrepl-quick-eval (format "(symbol-info %s)" x))))
 
 ;;;###autoload
 (defun ac-nrepl-popup-doc ()
   "A popup alternative to `nrepl-doc'."
   (interactive)
-  (let* ((sym (symbol-at-point))
-         (doc (format "%s\n%s."
-                      (ac-nrepl-documentation sym)
-                      (ac-nrepl-symbol-value sym))))
+  (let ((doc (ac-nrepl-symbol-info (symbol-at-point))))
     (when doc
      (popup-tip doc
                 :point (ac-nrepl-symbol-start-pos)
