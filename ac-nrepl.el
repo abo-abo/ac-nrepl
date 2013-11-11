@@ -285,11 +285,8 @@ This affects only the current buffer."
 
 (defun ac-nrepl-symbol-info (x)
   "Return a doctring for X."
-  (when (null (get 'ac-nrepl-symbol-info 'sourced))
-    (put 'ac-nrepl-symbol-info 'sourced t)
-    (nrepl-send-string-sync
-     "(defmacro symbol-info [x]
-  (let [symbolp (symbol? x)
+  (read (ac-nrepl-quick-eval (format "(let [x '%s
+        symbolp (symbol? x)
         fboundp (and symbolp (resolve x))
         docstring (and symbolp
                        (eval `(with-out-str (doc ~x))))
@@ -299,8 +296,7 @@ This affects only the current buffer."
     (cond
      special docstring
      (not fboundp) \"unbound\"
-     :else `(format \"%s\n%s.\" ~docstring ~x))))"))
-  (read (ac-nrepl-quick-eval (format "(symbol-info %s)" x))))
+     :else (format \"%%s\n%%s.\" docstring (eval x))))" x))))
 
 ;;;###autoload
 (defun ac-nrepl-popup-doc ()
